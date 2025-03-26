@@ -1,71 +1,110 @@
-from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from models import Admin, Rider, Agent, Customer
-from schemas.auth_schema import AuthLogin, UserRegistration
+from schemas.auth_schema import AuthLogin, UserRegistration, UserResponse
 from utils.security import hash_password, verify_password
+from fastapi import HTTPException
 
-def authenticate_user(db: Session, login_data: AuthLogin):
-    """Authenticate user and return their role if valid."""
-    email = login_data.email
-    password = login_data.password 
+def authenticate_user(db: Session, request: AuthLogin):
+    admin = db.query(Admin).filter(Admin.email == request.email).first()
+    if admin and verify_password(request.password, admin.password):
+        return {"user_id": admin.id, "role": "admin"}
+    
+    rider = db.query(Rider).filter(Rider.email == request.email).first()
+    if rider and verify_password(request.password, rider.password):
+        return {"user_id": rider.id, "role": "rider"}
+    
+    agent = db.query(Agent).filter(Agent.email == request.email).first()
+    if agent and verify_password(request.password, agent.password):
+        return {"user_id": agent.id, "role": "agent"}
+    
+    customer = db.query(Customer).filter(Customer.email == request.email).first()
+    if customer and verify_password(request.password, customer.password):
+        return {"user_id": customer.id, "role": "customer"}
+    
+    return None
 
-    user = (
-        db.query(Admin).filter(Admin.email == email).first() or
-        db.query(Rider).filter(Rider.email == email).first() or
-        db.query(Agent).filter(Agent.email == email).first() or
-        db.query(Customer).filter(Customer.email == email).first()
-    )
-
-    if user and verify_password(password, user.password):
-        if isinstance(user, Admin):
-            return {"role": "admin", "user": user}
-        elif isinstance(user, Rider):
-            return {"role": "rider", "user": user}
-        elif isinstance(user, Agent):
-            return {"role": "agent", "user": user}
-        elif isinstance(user, Customer):
-            return {"role": "customer", "user": user}
-
-    return None  
-
-def create_user(db: Session, user_data: UserRegistration):
-    """Create a new user while preventing duplicate emails."""
-    email = user_data.email
-
-    existing_user = (
-        db.query(Admin).filter(Admin.email == email).first() or
-        db.query(Rider).filter(Rider.email == email).first() or
-        db.query(Agent).filter(Agent.email == email).first() or
-        db.query(Customer).filter(Customer.email == email).first()
-    )
-
-    if existing_user:
-        return {"error": "Email is already registered"}
-
-
-    hashed_password = hash_password(user_data.password)
-
-
-    role_model = {
-        "admin": Admin,
-        "rider": Rider,
-        "agent": Agent,
-        "customer": Customer
-    }.get(user_data.role.lower())
-
-    if not role_model:
-        raise HTTPException(status_code=400, detail="Invalid role provided")
-
-
-    # Create and save user
-    new_user = role_model(
-        email=user_data.email,
-        password=hashed_password,  
-        name=user_data.name
-    )
-
-    db.add(new_user)
+def register_user(db: Session, request: UserRegistration):
+    if db.query(Admin).filter(Admin.email == request.email).first():
+        return None
+    if db.query(Rider).filter(Rider.email == request.email).first():
+        return None
+    if db.query(Agent).filter(Agent.email == request.email).first():
+        return None
+    if db.query(Customer).filter(Customer.email == request.email).first():
+        return None
+    
+    if request.role in ["rider", "agent"]:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Role '{request.role}' cannot be registered directly. Admins must create accounts for riders and agents."
+        )
+    
+    if request.role not in ["admin", "customer"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid role: {request.role}. Only 'admin' and 'customer' roles can register directly."
+        )
+    
+    hashed_password = hash_password(request.password)
+    
+    if request.role == "admin":
+        user = Admin(
+            name=request.name,
+            email=request.email,
+            password=hashed_password
+        )
+    elif request.role == "customer":
+        user = Customer(
+            name=request.name,
+            email=request.email,
+            password=hashed_password
+        )
+    
+    db.add(user)
     db.commit()
-    db.refresh(new_user)
+    db.refresh(user)
+    return UserResponse(id=user.id, email=user.email, role=request.role)
 
-    return {"message": "User registered successfully", "user_id": new_user.id}
+def register_rider_by_admin(db: Session, request: UserRegistration):
+    if db.query(Admin).filter(Admin.email == request.email).first():
+        return None
+    if db.query(Rider).filter(Rider.email == request.email).first():
+        return None
+    if db.query(Agent).filter(Agent.email == request.email).first():
+        return None
+    if db.query(Customer).filter(Customer.email == request.email).first():
+        return None
+    
+    hashed_password = hash_password(request.password)
+    user = Rider(
+        name=request.name,
+        email=request.email,
+        password=hashed_password
+    )
+    
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return UserResponse(id=user.id, email=user.email, role="rider")
+
+def register_agent_by_admin(db: Session, request: UserRegistration):
+    if db.query(Admin).filter(Admin.email == request.email).first():
+        return None
+    if db.query(Rider).filter(Rider.email == request.email).first():
+        return None
+    if db.query(Agent).filter(Agent.email == request.email).first():
+        return None
+    if db.query(Customer).filter(Customer.email == request.email).first():
+        return None
+    
+    hashed_password = hash_password(request.password)
+    user = Agent(
+        name=request.name,
+        email=request.email,
+        password=hashed_password
+    )
+    
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return UserResponse(id=user.id, email=user.email, role="agent")

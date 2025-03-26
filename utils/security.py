@@ -15,7 +15,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def create_session(response: Response, user_id: int, role: str):
     """Create a session cookie for the user."""
     session_data = f"{user_id}|{role}"
-    response.set_cookie(key="session", value=session_data, httponly=True, secure=True, samesite="Lax")
+    response.set_cookie(key="session", value=session_data, httponly=True, secure=False, samesite="Lax")  # Changed to secure=False for local dev
 
 def destroy_session(response: Response):
     """Destroy the session cookie."""
