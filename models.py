@@ -13,7 +13,8 @@ class Admin(Base):
     profile_picture = Column(String(255), nullable=True) 
     last_login = Column(DateTime, nullable=True)
     preferences = Column(JSON, nullable=True, default={})
-
+    role = Column(String(20), nullable=False, default="admin")
+    
 class Rider(Base):
     __tablename__ = "riders"
     id = Column(Integer, primary_key=True, index=True)

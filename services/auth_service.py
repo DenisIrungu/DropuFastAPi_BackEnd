@@ -7,7 +7,7 @@ from fastapi import HTTPException
 def authenticate_user(db: Session, request: AuthLogin):
     admin = db.query(Admin).filter(Admin.email == request.email).first()
     if admin and verify_password(request.password, admin.password):
-        return {"user_id": admin.id, "role": "admin"}
+        return {"user_id": admin.id, "role": admin.role}  # Use admin.role instead of hardcoding "admin"
     
     rider = db.query(Rider).filter(Rider.email == request.email).first()
     if rider and verify_password(request.password, rider.password):
@@ -33,27 +33,21 @@ def register_user(db: Session, request: UserRegistration):
     if db.query(Customer).filter(Customer.email == request.email).first():
         return None
     
-    if request.role in ["rider", "agent"]:
+    if request.role in ["rider", "agent", "admin"]:  # Include "admin" in restricted roles
         raise HTTPException(
             status_code=403,
-            detail=f"Role '{request.role}' cannot be registered directly. Admins must create accounts for riders and agents."
+            detail=f"Role '{request.role}' cannot be registered directly. Admins must be created by the super admin."
         )
     
-    if request.role not in ["admin", "customer"]:
+    if request.role not in ["customer"]:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid role: {request.role}. Only 'admin' and 'customer' roles can register directly."
+            detail=f"Invalid role: {request.role}. Only 'customer' role can register directly."
         )
     
     hashed_password = hash_password(request.password)
     
-    if request.role == "admin":
-        user = Admin(
-            name=request.name,
-            email=request.email,
-            password=hashed_password
-        )
-    elif request.role == "customer":
+    if request.role == "customer":
         user = Customer(
             name=request.name,
             email=request.email,

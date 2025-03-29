@@ -8,7 +8,7 @@ def get_current_user(request: Request):
     try:
         user_id, role = session.split("|")
         user_id = int(user_id)
-        if role not in ["admin", "rider", "agent", "customer"]:
+        if role not in ["admin", "super_admin", "rider", "agent", "customer"]:  
             raise ValueError("Invalid role")
         return {"user_id": user_id, "role": role}
     except (ValueError, IndexError):
