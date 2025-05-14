@@ -7,7 +7,7 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-app.mount("/static", StaticFiles(directory="statics"), name="static")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 app.include_router(admin_router, prefix="/admin", tags=["Admin"])

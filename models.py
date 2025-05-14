@@ -1,8 +1,7 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime,Boolean, JSON
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from database import Base
-
 
 class Admin(Base):
     __tablename__ = "admins"
@@ -51,6 +50,19 @@ class Feedback(Base):
     __tablename__ = "feedback"
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, nullable=False)
-    user_type = Column(String(20), nullable=False) 
-    message = Column(String(1000), nullable=False)  
+    user_type = Column(String(20), nullable=False)
+    message = Column(String(1000), nullable=False)
+    region = Column(String(100), nullable=False)  # New field
+    category = Column(String(50), nullable=False)  # New field
+    status = Column(String(50), nullable=False)    # New field
+    rating = Column(Integer, nullable=False)      # New field
     timestamp = Column(DateTime, default=datetime.utcnow)
+
+class VerificationCode(Base):
+    __tablename__ = "verification_codes"
+    id = Column(Integer, primary_key=True, index=True)
+    admin_id = Column(Integer, ForeignKey("admins.id"), nullable=False)
+    code = Column(String(6), nullable=False)  # 6-digit code
+    type = Column(String(20), nullable=False)  # "email" or "password"
+    expires_at = Column(DateTime, nullable=False)  # Expiration timestamp
+    created_at = Column(DateTime, default=datetime.utcnow)

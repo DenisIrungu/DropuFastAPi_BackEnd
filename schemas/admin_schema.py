@@ -1,5 +1,7 @@
+import email
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
+from typing import Optional
 
 class AdminCreate(BaseModel):
     name: str
@@ -8,13 +10,22 @@ class AdminCreate(BaseModel):
 
 class AdminProfileResponse(BaseModel):
     name: str
+    email: str
     profile_picture: str | None
 
     class Config:
         from_attributes = True
 
+class AdminProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    verification_code: Optional[str] = None
+
 class AdminProfileUpdateResponse(BaseModel):
-    profile_picture: str
+    name: str
+    email: str
+    profile_picture: Optional[str] = None  
 
 class IssueCreate(BaseModel):
     description: str
@@ -53,7 +64,24 @@ class FeedbackResponse(BaseModel):
     user_id: int  
     user_type: str 
     message: str
+    region: str  # New field
+    category: str  # New field
+    status: str  # New field
+    rating: int  # New field
     timestamp: datetime
+
+    class Config:
+        from_attributes = True
+
+class DeleteAccountResponse(BaseModel):
+    message: str
+
+class AdminListResponse(BaseModel):
+    display_id: int
+    id: int
+    name: str
+    email: str
+    profile_picture: Optional[str] = None
 
     class Config:
         from_attributes = True
