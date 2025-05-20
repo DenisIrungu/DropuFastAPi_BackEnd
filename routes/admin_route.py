@@ -14,7 +14,7 @@ from services.admin_service import (
     update_admin_preferences,
     get_top_regions,
     create_feedback,
-    get_feedbacks,  # Added
+    get_feedbacks,
     delete_admin_account
 )
 from services.auth_service import register_rider_by_admin, register_agent_by_admin
@@ -31,7 +31,7 @@ from schemas.admin_schema import (
     AdminProfileUpdate,
     DeleteAccountResponse
 )
-from schemas.auth_schema import UserRegistration, UserResponse
+from schemas.auth_schema import UserRegistration, UserResponse, RiderRegistration
 from models import Admin, VerificationCode
 from utils.security import hash_password
 from datetime import datetime, timedelta
@@ -246,17 +246,61 @@ def get_feedbacks_endpoint(
 
 @router.post("/register-rider", response_model=UserResponse)
 def register_rider(
-    request: UserRegistration,
+    first_name: str = Form(...),
+    last_name: str = Form(...),
+    phone_number: str = Form(...),
+    email: str = Form(...),
+    bike_model: str = Form(...),
+    bike_color: str = Form(...),
+    plate_number: str = Form(...),
+    license: str = Form(...),
+    id_document: UploadFile = File(...),
+    driving_license: UploadFile = File(...),
+    insurance: UploadFile = File(...),
+    emergency_contact_name: str = Form(...),
+    emergency_contact_phone: str = Form(...),
+    emergency_contact_relationship: str = Form(...),
+    terms_accepted: bool = Form(...),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     if current_user["role"] not in ["admin", "super_admin"]:
         raise HTTPException(status_code=403, detail="Not authorized")
-    if request.role != "rider":
-        raise HTTPException(status_code=400, detail="This endpoint can only register riders")
-    user = register_rider_by_admin(db, request)
+
+    # Validate terms acceptance
+    if not terms_accepted:
+        raise HTTPException(status_code=400, detail="Terms and conditions must be accepted")
+
+    # Validate PDF files
+    files = [id_document, driving_license, insurance]
+    for file in files:
+        if file.content_type != "application/pdf":
+            raise HTTPException(status_code=400, detail=f"File {file.filename} must be a PDF")
+
+    # Prepare rider registration data
+    rider_data = RiderRegistration(
+        first_name=first_name,
+        last_name=last_name,
+        phone_number=phone_number,
+        email=email,
+        bike_model=bike_model,
+        bike_color=bike_color,
+        plate_number=plate_number,
+        license=license,
+        id_document=id_document,
+        driving_license=driving_license,
+        insurance=insurance,
+        emergency_contact_name=emergency_contact_name,
+        emergency_contact_phone=emergency_contact_phone,
+        emergency_contact_relationship=emergency_contact_relationship,
+        role="rider"
+    )
+
+    # Call service to register rider
+    user = register_rider_by_admin(db, rider_data, current_user["user_id"])
     if not user:
         raise HTTPException(status_code=400, detail="Email already registered")
+
     return user
 
 @router.post("/register-agent", response_model=UserResponse)

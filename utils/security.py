@@ -1,5 +1,7 @@
 from fastapi import Response
 from passlib.context import CryptContext
+import secrets
+import string
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -20,3 +22,8 @@ def create_session(response: Response, user_id: int, role: str):
 def destroy_session(response: Response):
     """Destroy the session cookie."""
     response.delete_cookie("session")
+
+def generate_random_password(length: int = 8) -> str:
+    """Generate a random secure password."""
+    characters = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(characters) for _ in range(length))
