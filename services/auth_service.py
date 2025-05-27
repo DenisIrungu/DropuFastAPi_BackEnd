@@ -163,3 +163,42 @@ def register_agent_by_admin(db: Session, request: UserRegistration):
     db.commit()
     db.refresh(user)
     return UserResponse(id=user.id, email=user.email, role="agent")
+
+def resend_rider_verification_email(db: Session, rider_email: str, admin_id: int):
+    # Check if the rider exists
+    rider = db.query(Rider).filter(Rider.email == rider_email).first()
+    if not rider:
+        raise HTTPException(status_code=404, detail="Rider not found")
+
+    # Generate a new temporary password
+    temp_password = generate_random_password()
+    expires_at = datetime.utcnow() + timedelta(minutes=5)
+
+    # Delete any existing reset tokens for this rider
+    db.query(ResetToken).filter(ResetToken.rider_id == rider.id).delete()
+    db.commit()
+
+    # Create a new reset token
+    reset_token = ResetToken(
+        rider_id=rider.id,
+        token=temp_password,
+        expires_at=expires_at
+    )
+    db.add(reset_token)
+
+    # Update rider's password with the new temporary password
+    rider.password = hash_password(temp_password)
+    db.commit()
+    db.refresh(rider)
+
+    # Send welcome email with the new reset link
+    reset_link = f"https://yourapp.com/rider/reset-password?token={temp_password}"
+    if not send_welcome_email(rider.email, rider.name, temp_password, reset_link):
+        raise HTTPException(status_code=500, detail="Failed to send verification email")
+
+    return UserResponse(
+        id=rider.id,
+        email=rider.email,
+        role="rider",
+        message="Verification email resent successfully"
+    )

@@ -17,7 +17,7 @@ from services.admin_service import (
     get_feedbacks,
     delete_admin_account
 )
-from services.auth_service import register_rider_by_admin, register_agent_by_admin
+from services.auth_service import register_rider_by_admin, register_agent_by_admin, resend_rider_verification_email
 from schemas.admin_schema import (
     AdminProfileResponse,
     AdminProfileUpdateResponse,
@@ -32,7 +32,7 @@ from schemas.admin_schema import (
     DeleteAccountResponse
 )
 from schemas.auth_schema import UserRegistration, UserResponse, RiderRegistration
-from models import Admin, VerificationCode
+from models import Admin, VerificationCode, Rider
 from utils.security import hash_password
 from datetime import datetime, timedelta
 from typing import Optional
@@ -271,9 +271,10 @@ def register_rider(
     if not terms_accepted:
         raise HTTPException(status_code=400, detail="Terms and conditions must be accepted")
 
-    # Validate PDF files
+    # Validate PDF files with detailed logging
     files = [id_document, driving_license, insurance]
     for file in files:
+        print(f"Received file: {file.filename}, content_type: {file.content_type}, size: {file.size} bytes")
         if file.content_type != "application/pdf":
             raise HTTPException(status_code=400, detail=f"File {file.filename} must be a PDF")
 
@@ -395,6 +396,18 @@ def verify_code(
     db.refresh(admin)
     
     return {"message": f"{type.capitalize()} updated successfully"}
+
+@router.post("/resend-verification-email", response_model=UserResponse)
+def resend_verification_email(
+    email: str = Form(...),
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user["role"] not in ["admin", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    # Call the service to resend the email
+    return resend_rider_verification_email(db, email, current_user["user_id"])
 
 @router.post("/delete-account", response_model=DeleteAccountResponse)
 def delete_account(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
